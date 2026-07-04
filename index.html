@@ -217,6 +217,22 @@
     height:14px;
     margin-bottom:48px;
     border:1px solid var(--ink);
+    transition:opacity 0.3s ease;
+  }
+
+  .empty-note{
+    margin:-8px 0 20px;
+    font-size:0.85rem;
+    font-style:italic;
+    color:var(--ink-soft);
+  }
+
+  .categories.is-empty .cat-amount{
+    color:var(--ink-soft);
+  }
+
+  #tally.is-empty{
+    opacity:0.35;
   }
 
   .tally div{
@@ -236,7 +252,7 @@
 
   .category{
     display:grid;
-    grid-template-columns:28px 1fr auto;
+    grid-template-columns:32px 1fr auto;
     gap:6px 18px;
     align-items:baseline;
     padding-bottom:20px;
@@ -248,15 +264,20 @@
   }
 
   .cat-mark{
-    width:14px;
-    height:14px;
-    border-radius:50%;
-    margin-top:5px;
+    width:24px;
+    height:24px;
+    margin-top:2px;
   }
 
-  .needs .cat-mark{background:var(--needs);}
-  .wants .cat-mark{background:var(--wants);}
-  .savings .cat-mark{background:var(--savings);}
+  .cat-mark svg{
+    width:100%;
+    height:100%;
+    display:block;
+  }
+
+  .needs .cat-mark{color:var(--needs);}
+  .wants .cat-mark{color:var(--wants);}
+  .savings .cat-mark{color:var(--savings);}
 
   .cat-heading{
     font-family:'Fraunces', serif;
@@ -458,7 +479,7 @@
   }
 
   @media (max-width:520px){
-    .category{grid-template-columns:24px 1fr;}
+    .category{grid-template-columns:28px 1fr;}
     .cat-amount{grid-column:1/-1;grid-row:auto;text-align:left;margin-top:6px;}
     .cat-amount small{text-align:left;}
     header{flex-direction:column;align-items:flex-start;}
@@ -500,16 +521,20 @@
     </div>
   </div>
 
-  <div class="tally" aria-hidden="true">
+  <p class="empty-note" id="empty-note" hidden>Enter your income above to see how it splits across needs, wants, and savings.</p>
+
+  <div class="tally" aria-hidden="true" id="tally">
     <div class="t-needs" style="flex-basis:50%"></div>
     <div class="t-wants" style="flex-basis:30%"></div>
     <div class="t-savings" style="flex-basis:20%"></div>
   </div>
 
-  <div class="categories">
+  <div class="categories" id="categories">
 
     <div class="category needs">
-      <div class="cat-mark"></div>
+      <div class="cat-mark" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 11.5 12 4l8 7.5"/><path d="M6 10v9a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1v-9"/><path d="M10 20v-6h4v6"/></svg>
+      </div>
       <div class="cat-heading">Needs</div>
       <div class="cat-amount" id="needs-amount">$0<small>per month</small></div>
       <div class="cat-sub">Costs you can't avoid or easily reduce.</div>
@@ -521,7 +546,9 @@
     </div>
 
     <div class="category wants">
-      <div class="cat-mark"></div>
+      <div class="cat-mark" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v4M12 17v4M3 12h4M17 12h4"/><path d="M12 8a4 4 0 0 0 4 4 4 4 0 0 0-4 4 4 4 0 0 0-4-4 4 4 0 0 0 4-4Z"/></svg>
+      </div>
       <div class="cat-heading">Wants</div>
       <div class="cat-amount" id="wants-amount">$0<small>per month</small></div>
       <div class="cat-sub">Spending that makes life better but isn't essential.</div>
@@ -533,7 +560,9 @@
     </div>
 
     <div class="category savings">
-      <div class="cat-mark"></div>
+      <div class="cat-mark" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 11a6 6 0 0 1 6-5h3l2-2 1 2.2 2 .3-1.2 1.8A6 6 0 0 1 19 13v3l1 2h-3l-1-1.5h-5.5L9 18H6l1-2v-1.2A6 6 0 0 1 5 11Z"/><circle cx="15.5" cy="10.5" r=".6" fill="currentColor" stroke="none"/><path d="M5 12H3"/></svg>
+      </div>
       <div class="cat-heading">Savings &amp; debt payoff</div>
       <div class="cat-amount" id="savings-amount">$0<small>per month</small></div>
       <div class="cat-sub">Building your future and paying down more than the minimum.</div>
@@ -597,6 +626,9 @@
   };
   const totalPctEl = document.getElementById('total-pct');
   const warnEl = document.getElementById('warn');
+  const emptyNote = document.getElementById('empty-note');
+  const tallyEl = document.getElementById('tally');
+  const categoriesEl = document.getElementById('categories');
 
   let frequency = 'monthly';
   let pct = { needs: 50, wants: 30, savings: 20 };
@@ -634,7 +666,12 @@
 
   function render(){
     const income = monthlyIncome();
+    const isEmpty = income <= 0;
     let sum = 0;
+
+    emptyNote.hidden = !isEmpty;
+    tallyEl.classList.toggle('is-empty', isEmpty);
+    categoriesEl.classList.toggle('is-empty', isEmpty);
 
     ['needs','wants','savings'].forEach(key => {
       const rounded = Math.round(pct[key]);
@@ -642,7 +679,11 @@
       pctLabels[key].textContent = rounded + '%';
       tally[key].style.flexBasis = pct[key] + '%';
       const amount = income * (pct[key] / 100);
-      amountEls[key].innerHTML = formatCurrency(amount) + '<small>per ' + (frequency === 'annual' ? 'month (from annual)' : 'month') + '</small>';
+      if (isEmpty) {
+        amountEls[key].innerHTML = '—<small>' + rounded + '% of income</small>';
+      } else {
+        amountEls[key].innerHTML = formatCurrency(amount) + '<small>per ' + (frequency === 'annual' ? 'month (from annual)' : 'month') + '</small>';
+      }
       sum += rounded;
     });
 
