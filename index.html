@@ -1,0 +1,541 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>50/30/20 Budget Ledger</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;1,9..144,500&family=IBM+Plex+Mono:wght@400;500;600&family=Source+Sans+3:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#F6F2E7;
+    --paper-line:#DCD3BC;
+    --ink:#20281F;
+    --ink-soft:#5B6357;
+    --needs:#33553A;
+    --wants:#B08A2E;
+    --savings:#7A3B2E;
+    --needs-bg:#E7EDE3;
+    --wants-bg:#F3EAD2;
+    --savings-bg:#F0E0DA;
+    --radius:2px;
+  }
+
+  *{box-sizing:border-box;}
+
+  body{
+    margin:0;
+    background:var(--paper);
+    color:var(--ink);
+    font-family:'Source Sans 3', sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+
+  body::before{
+    content:"";
+    position:fixed;
+    inset:0;
+    pointer-events:none;
+    background-image: repeating-linear-gradient(
+      to bottom,
+      transparent,
+      transparent 39px,
+      var(--paper-line) 39px,
+      var(--paper-line) 40px
+    );
+    opacity:0.35;
+    z-index:0;
+  }
+
+  .sheet{
+    position:relative;
+    z-index:1;
+    max-width:760px;
+    margin:0 auto;
+    padding:56px 32px 80px;
+  }
+
+  header{
+    border-bottom:2px solid var(--ink);
+    padding-bottom:20px;
+    margin-bottom:36px;
+    display:flex;
+    justify-content:space-between;
+    align-items:flex-end;
+    flex-wrap:wrap;
+    gap:12px;
+  }
+
+  header .title-block h1{
+    font-family:'Fraunces', serif;
+    font-weight:600;
+    font-size:2.1rem;
+    margin:0 0 4px;
+    letter-spacing:-0.01em;
+  }
+
+  header .title-block p{
+    margin:0;
+    color:var(--ink-soft);
+    font-size:0.95rem;
+  }
+
+  header .ledger-no{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:0.75rem;
+    color:var(--ink-soft);
+    text-align:right;
+  }
+
+  .income-row{
+    display:flex;
+    align-items:center;
+    gap:16px;
+    margin-bottom:44px;
+    flex-wrap:wrap;
+  }
+
+  .income-row label{
+    font-family:'Fraunces', serif;
+    font-style:italic;
+    font-size:1.05rem;
+    color:var(--ink-soft);
+    white-space:nowrap;
+  }
+
+  .income-input-wrap{
+    position:relative;
+    flex:1;
+    min-width:220px;
+  }
+
+  .income-input-wrap span{
+    position:absolute;
+    left:14px;
+    top:50%;
+    transform:translateY(-50%);
+    font-family:'IBM Plex Mono', monospace;
+    font-size:1.4rem;
+    color:var(--ink);
+  }
+
+  #income{
+    width:100%;
+    font-family:'IBM Plex Mono', monospace;
+    font-size:1.4rem;
+    font-weight:500;
+    padding:10px 14px 10px 34px;
+    border:none;
+    border-bottom:2px solid var(--ink);
+    background:transparent;
+    color:var(--ink);
+    outline:none;
+  }
+
+  #income:focus{
+    border-bottom-color:var(--needs);
+  }
+
+  .frequency{
+    display:flex;
+    gap:6px;
+    font-family:'IBM Plex Mono', monospace;
+    font-size:0.75rem;
+  }
+
+  .frequency button{
+    padding:6px 10px;
+    border:1px solid var(--paper-line);
+    background:transparent;
+    color:var(--ink-soft);
+    cursor:pointer;
+    border-radius:var(--radius);
+  }
+
+  .frequency button.active{
+    background:var(--ink);
+    color:var(--paper);
+    border-color:var(--ink);
+  }
+
+  /* Stacked bar - signature element */
+  .tally{
+    display:flex;
+    width:100%;
+    height:14px;
+    margin-bottom:48px;
+    border:1px solid var(--ink);
+  }
+
+  .tally div{
+    height:100%;
+    transition:flex-basis 0.4s ease;
+  }
+
+  .tally .t-needs{background:var(--needs);}
+  .tally .t-wants{background:var(--wants);}
+  .tally .t-savings{background:var(--savings);}
+
+  .categories{
+    display:flex;
+    flex-direction:column;
+    gap:28px;
+  }
+
+  .category{
+    display:grid;
+    grid-template-columns:28px 1fr auto;
+    gap:6px 18px;
+    align-items:baseline;
+    padding-bottom:20px;
+    border-bottom:1px solid var(--paper-line);
+  }
+
+  .category:last-child{
+    border-bottom:none;
+  }
+
+  .cat-mark{
+    width:14px;
+    height:14px;
+    border-radius:50%;
+    margin-top:5px;
+  }
+
+  .needs .cat-mark{background:var(--needs);}
+  .wants .cat-mark{background:var(--wants);}
+  .savings .cat-mark{background:var(--savings);}
+
+  .cat-heading{
+    font-family:'Fraunces', serif;
+    font-weight:600;
+    font-size:1.25rem;
+  }
+
+  .cat-sub{
+    grid-column:2;
+    font-size:0.85rem;
+    color:var(--ink-soft);
+    margin-top:2px;
+    max-width:48ch;
+  }
+
+  .cat-amount{
+    grid-column:3;
+    grid-row:1;
+    font-family:'IBM Plex Mono', monospace;
+    font-size:1.35rem;
+    font-weight:500;
+    text-align:right;
+    white-space:nowrap;
+  }
+
+  .cat-amount small{
+    display:block;
+    font-size:0.7rem;
+    font-weight:400;
+    color:var(--ink-soft);
+    text-align:right;
+  }
+
+  .cat-examples{
+    grid-column:1 / -1;
+    margin-top:10px;
+    font-size:0.82rem;
+    color:var(--ink-soft);
+    line-height:1.6;
+  }
+
+  .cat-examples b{color:var(--ink);font-weight:600;}
+
+  .slider-row{
+    grid-column:1 / -1;
+    display:flex;
+    align-items:center;
+    gap:12px;
+    margin-top:8px;
+  }
+
+  input[type="range"]{
+    -webkit-appearance:none;
+    appearance:none;
+    flex:1;
+    height:2px;
+    background:var(--paper-line);
+    outline:none;
+  }
+
+  input[type="range"]::-webkit-slider-thumb{
+    -webkit-appearance:none;
+    width:14px;
+    height:14px;
+    border-radius:50%;
+    cursor:pointer;
+    border:2px solid var(--paper);
+  }
+
+  .needs input[type="range"]::-webkit-slider-thumb{background:var(--needs);}
+  .wants input[type="range"]::-webkit-slider-thumb{background:var(--wants);}
+  .savings input[type="range"]::-webkit-slider-thumb{background:var(--savings);}
+
+  input[type="range"]::-moz-range-thumb{
+    width:14px;
+    height:14px;
+    border-radius:50%;
+    cursor:pointer;
+    border:2px solid var(--paper);
+  }
+
+  .needs input[type="range"]::-moz-range-thumb{background:var(--needs);}
+  .wants input[type="range"]::-moz-range-thumb{background:var(--wants);}
+  .savings input[type="range"]::-moz-range-thumb{background:var(--savings);}
+
+  .pct-label{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:0.8rem;
+    color:var(--ink-soft);
+    width:38px;
+    text-align:right;
+  }
+
+  .summary{
+    margin-top:48px;
+    padding-top:24px;
+    border-top:2px solid var(--ink);
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    flex-wrap:wrap;
+    gap:12px;
+  }
+
+  .summary .warn{
+    font-size:0.85rem;
+    color:var(--savings);
+    font-style:italic;
+  }
+
+  .summary .total{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:1rem;
+    text-align:right;
+  }
+
+  .summary .total strong{
+    font-size:1.3rem;
+  }
+
+  footer{
+    margin-top:40px;
+    text-align:center;
+    font-size:0.78rem;
+    color:var(--ink-soft);
+    font-style:italic;
+  }
+
+  @media (max-width:520px){
+    .category{grid-template-columns:24px 1fr;}
+    .cat-amount{grid-column:1/-1;grid-row:auto;text-align:left;margin-top:6px;}
+    .cat-amount small{text-align:left;}
+    header{flex-direction:column;align-items:flex-start;}
+    header .ledger-no{text-align:left;}
+  }
+
+  @media (prefers-reduced-motion: reduce){
+    .tally div{transition:none;}
+  }
+</style>
+</head>
+<body>
+
+<div class="sheet">
+
+  <header>
+    <div class="title-block">
+      <h1>Budget Ledger</h1>
+      <p>The 50 / 30 / 20 rule, worked out for you</p>
+    </div>
+    <div class="ledger-no">NO. 503020<br>REV. 2026</div>
+  </header>
+
+  <div class="income-row">
+    <label for="income">Income, after tax</label>
+    <div class="income-input-wrap">
+      <span>$</span>
+      <input type="text" id="income" inputmode="decimal" value="4000" aria-label="After-tax income amount">
+    </div>
+    <div class="frequency" role="group" aria-label="Income frequency">
+      <button data-freq="monthly" class="active">MONTHLY</button>
+      <button data-freq="annual">ANNUAL</button>
+    </div>
+  </div>
+
+  <div class="tally" aria-hidden="true">
+    <div class="t-needs" style="flex-basis:50%"></div>
+    <div class="t-wants" style="flex-basis:30%"></div>
+    <div class="t-savings" style="flex-basis:20%"></div>
+  </div>
+
+  <div class="categories">
+
+    <div class="category needs">
+      <div class="cat-mark"></div>
+      <div class="cat-heading">Needs</div>
+      <div class="cat-amount" id="needs-amount">$0<small>per month</small></div>
+      <div class="cat-sub">Costs you can't avoid or easily reduce.</div>
+      <div class="cat-examples"><b>Typically:</b> rent or mortgage, groceries, utilities, insurance, minimum debt payments, transportation.</div>
+      <div class="slider-row">
+        <input type="range" min="0" max="100" value="50" id="needs-slider" aria-label="Needs percentage">
+        <span class="pct-label" id="needs-pct">50%</span>
+      </div>
+    </div>
+
+    <div class="category wants">
+      <div class="cat-mark"></div>
+      <div class="cat-heading">Wants</div>
+      <div class="cat-amount" id="wants-amount">$0<small>per month</small></div>
+      <div class="cat-sub">Spending that makes life better but isn't essential.</div>
+      <div class="cat-examples"><b>Typically:</b> dining out, streaming, hobbies, travel, shopping, upgrades on necessities.</div>
+      <div class="slider-row">
+        <input type="range" min="0" max="100" value="30" id="wants-slider" aria-label="Wants percentage">
+        <span class="pct-label" id="wants-pct">30%</span>
+      </div>
+    </div>
+
+    <div class="category savings">
+      <div class="cat-mark"></div>
+      <div class="cat-heading">Savings &amp; debt payoff</div>
+      <div class="cat-amount" id="savings-amount">$0<small>per month</small></div>
+      <div class="cat-sub">Building your future and paying down more than the minimum.</div>
+      <div class="cat-examples"><b>Typically:</b> emergency fund, retirement contributions, extra debt payments, investing.</div>
+      <div class="slider-row">
+        <input type="range" min="0" max="100" value="20" id="savings-slider" aria-label="Savings percentage">
+        <span class="pct-label" id="savings-pct">20%</span>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="summary">
+    <div class="warn" id="warn"></div>
+    <div class="total">Allocated <strong id="total-pct">100%</strong> of income</div>
+  </div>
+
+  <footer>Adjust any slider — the other two rebalance to keep the ledger at 100%.</footer>
+
+</div>
+
+<script>
+(function(){
+  const incomeInput = document.getElementById('income');
+  const freqButtons = document.querySelectorAll('.frequency button');
+  const sliders = {
+    needs: document.getElementById('needs-slider'),
+    wants: document.getElementById('wants-slider'),
+    savings: document.getElementById('savings-slider')
+  };
+  const pctLabels = {
+    needs: document.getElementById('needs-pct'),
+    wants: document.getElementById('wants-pct'),
+    savings: document.getElementById('savings-pct')
+  };
+  const amountEls = {
+    needs: document.getElementById('needs-amount'),
+    wants: document.getElementById('wants-amount'),
+    savings: document.getElementById('savings-amount')
+  };
+  const tally = {
+    needs: document.querySelector('.t-needs'),
+    wants: document.querySelector('.t-wants'),
+    savings: document.querySelector('.t-savings')
+  };
+  const totalPctEl = document.getElementById('total-pct');
+  const warnEl = document.getElementById('warn');
+
+  let frequency = 'monthly';
+  let pct = { needs: 50, wants: 30, savings: 20 };
+
+  function parseIncome(){
+    const raw = incomeInput.value.replace(/[^0-9.]/g, '');
+    const val = parseFloat(raw);
+    return isNaN(val) || val < 0 ? 0 : val;
+  }
+
+  function monthlyIncome(){
+    const val = parseIncome();
+    return frequency === 'annual' ? val / 12 : val;
+  }
+
+  function formatCurrency(n){
+    return '$' + n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+
+  function rebalance(changedKey){
+    const keys = ['needs', 'wants', 'savings'];
+    const others = keys.filter(k => k !== changedKey);
+    const changedVal = pct[changedKey];
+    const remaining = 100 - changedVal;
+    const othersSum = pct[others[0]] + pct[others[1]];
+
+    if (othersSum <= 0) {
+      pct[others[0]] = remaining / 2;
+      pct[others[1]] = remaining / 2;
+    } else {
+      pct[others[0]] = remaining * (pct[others[0]] / othersSum);
+      pct[others[1]] = remaining * (pct[others[1]] / othersSum);
+    }
+  }
+
+  function render(){
+    const income = monthlyIncome();
+    let sum = 0;
+
+    ['needs','wants','savings'].forEach(key => {
+      const rounded = Math.round(pct[key]);
+      sliders[key].value = rounded;
+      pctLabels[key].textContent = rounded + '%';
+      tally[key].style.flexBasis = pct[key] + '%';
+      const amount = income * (pct[key] / 100);
+      amountEls[key].innerHTML = formatCurrency(amount) + '<small>per ' + (frequency === 'annual' ? 'month (from annual)' : 'month') + '</small>';
+      sum += rounded;
+    });
+
+    totalPctEl.textContent = sum + '%';
+
+    if (pct.needs < 45) {
+      warnEl.textContent = 'Below 50% on needs — nicely lean, or some costs may be miscategorized.';
+    } else if (pct.needs > 60) {
+      warnEl.textContent = 'Needs above 60% is tight. Consider ways to reduce fixed costs.';
+    } else if (pct.savings < 15) {
+      warnEl.textContent = 'Savings under 15% will slow progress toward goals and debt payoff.';
+    } else {
+      warnEl.textContent = '';
+    }
+  }
+
+  Object.keys(sliders).forEach(key => {
+    sliders[key].addEventListener('input', (e) => {
+      pct[key] = parseFloat(e.target.value);
+      rebalance(key);
+      render();
+    });
+  });
+
+  incomeInput.addEventListener('input', render);
+
+  freqButtons.forEach(btn => {
+    btn.addEventListener('click', () => {
+      freqButtons.forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      frequency = btn.dataset.freq;
+      render();
+    });
+  });
+
+  render();
+})();
+</script>
+
+</body>
+</html>
