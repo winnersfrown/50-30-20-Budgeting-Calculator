@@ -42,6 +42,3 @@ where `r` is the monthly interest rate, `P` is the balance, and `A` is the month
 - Fonts load from Google Fonts over CDN; the page still works offline, falling back to system fonts.
 - No analytics, no external scripts, no data leaves the browser — all math happens client-side.
 
-## License
-
-MIT — see [LICENSE](LICENSE). Do whatever you like with it.
