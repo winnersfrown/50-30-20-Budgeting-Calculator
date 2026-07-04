@@ -22,7 +22,24 @@
     --radius:2px;
   }
 
+  html[data-theme="dark"]{
+    --paper:#1B1D17;
+    --paper-line:#3A3B33;
+    --ink:#EDE8DA;
+    --ink-soft:#9C9686;
+    --needs:#6FBF80;
+    --wants:#E0B84D;
+    --savings:#D97A63;
+    --needs-bg:#233126;
+    --wants-bg:#332C1B;
+    --savings-bg:#33231D;
+  }
+
   *{box-sizing:border-box;}
+
+  html{
+    background:var(--paper);
+  }
 
   body{
     margin:0;
@@ -30,6 +47,20 @@
     color:var(--ink);
     font-family:'Source Sans 3', sans-serif;
     -webkit-font-smoothing:antialiased;
+    transition:background 0.3s ease, color 0.3s ease;
+  }
+
+  .sheet{
+    animation:sheet-in 0.5s ease both;
+  }
+
+  @keyframes sheet-in{
+    from{opacity:0; transform:translateY(8px);}
+    to{opacity:1; transform:translateY(0);}
+  }
+
+  .cat-amount, .tally div{
+    transition:background 0.3s ease, color 0.3s ease;
   }
 
   body::before{
@@ -86,6 +117,26 @@
     font-size:0.75rem;
     color:var(--ink-soft);
     text-align:right;
+  }
+
+  .theme-toggle{
+    display:inline-flex;
+    align-items:center;
+    gap:6px;
+    background:transparent;
+    border:1px solid var(--paper-line);
+    color:var(--ink-soft);
+    font-family:'IBM Plex Mono', monospace;
+    font-size:0.7rem;
+    padding:6px 10px;
+    border-radius:var(--radius);
+    cursor:pointer;
+    margin-top:8px;
+  }
+
+  .theme-toggle:hover{
+    border-color:var(--ink-soft);
+    color:var(--ink);
   }
 
   .income-row{
@@ -299,6 +350,78 @@
     text-align:right;
   }
 
+  .debt-toggle{
+    grid-column:1 / -1;
+    margin-top:14px;
+    background:transparent;
+    border:none;
+    border-bottom:1px dashed var(--savings);
+    color:var(--savings);
+    font-family:'IBM Plex Mono', monospace;
+    font-size:0.78rem;
+    padding:0 0 2px;
+    cursor:pointer;
+    width:fit-content;
+  }
+
+  .debt-panel{
+    grid-column:1 / -1;
+    margin-top:16px;
+    padding:18px;
+    background:var(--savings-bg);
+    border:1px solid var(--paper-line);
+    border-radius:var(--radius);
+    animation:panel-in 0.3s ease both;
+  }
+
+  @keyframes panel-in{
+    from{opacity:0; transform:translateY(-4px);}
+    to{opacity:1; transform:translateY(0);}
+  }
+
+  .debt-inputs{
+    display:flex;
+    gap:20px;
+    flex-wrap:wrap;
+    margin-bottom:14px;
+  }
+
+  .debt-inputs label{
+    display:flex;
+    flex-direction:column;
+    gap:6px;
+    font-size:0.78rem;
+    color:var(--ink-soft);
+    flex:1;
+    min-width:140px;
+  }
+
+  .debt-inputs input{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:1rem;
+    padding:8px 10px;
+    border:none;
+    border-bottom:2px solid var(--paper-line);
+    background:transparent;
+    color:var(--ink);
+    outline:none;
+  }
+
+  .debt-inputs input:focus{
+    border-bottom-color:var(--savings);
+  }
+
+  .debt-result{
+    margin:0;
+    font-size:0.88rem;
+    line-height:1.6;
+  }
+
+  .debt-result strong{
+    font-family:'IBM Plex Mono', monospace;
+    color:var(--savings);
+  }
+
   .summary{
     margin-top:48px;
     padding-top:24px;
@@ -344,6 +467,9 @@
 
   @media (prefers-reduced-motion: reduce){
     .tally div{transition:none;}
+    .sheet{animation:none;}
+    .debt-panel{animation:none;}
+    body{transition:none;}
   }
 </style>
 </head>
@@ -356,7 +482,10 @@
       <h1>Budget Ledger</h1>
       <p>The 50 / 30 / 20 rule, worked out for you</p>
     </div>
-    <div class="ledger-no">NO. 503020<br>REV. 2026<br>BY WINNERSFROWN</div>
+    <div class="ledger-no">
+      NO. 503020<br>REV. 2026<br>BY WINNERSFROWN<br>
+      <button class="theme-toggle" id="theme-toggle" type="button" aria-label="Toggle dark mode">LIGHT / DARK</button>
+    </div>
   </header>
 
   <div class="income-row">
@@ -412,6 +541,22 @@
       <div class="slider-row">
         <input type="range" min="0" max="100" value="20" id="savings-slider" aria-label="Savings percentage">
         <span class="pct-label" id="savings-pct">20%</span>
+      </div>
+
+      <button class="debt-toggle" id="debt-toggle" type="button" aria-expanded="false">+ Debt payoff calculator</button>
+
+      <div class="debt-panel" id="debt-panel" hidden>
+        <div class="debt-inputs">
+          <label>
+            Debt balance
+            <input type="text" inputmode="decimal" id="debt-balance" placeholder="8,500">
+          </label>
+          <label>
+            Interest rate (APR)
+            <input type="text" inputmode="decimal" id="debt-apr" placeholder="19.9">
+          </label>
+        </div>
+        <p class="debt-result" id="debt-result">Enter a balance and rate to see your payoff timeline using your monthly savings amount as the payment.</p>
       </div>
     </div>
 
@@ -512,7 +657,94 @@
     } else {
       warnEl.textContent = '';
     }
+
+    if (typeof computeDebtPayoff === 'function' && !document.getElementById('debt-panel').hidden) {
+      computeDebtPayoff();
+    }
   }
+
+  // Theme toggle
+  const themeToggle = document.getElementById('theme-toggle');
+  const root = document.documentElement;
+  const savedTheme = localStorage.getItem('budget-ledger-theme');
+  if (savedTheme === 'dark') {
+    root.setAttribute('data-theme', 'dark');
+  }
+  themeToggle.addEventListener('click', () => {
+    const isDark = root.getAttribute('data-theme') === 'dark';
+    if (isDark) {
+      root.removeAttribute('data-theme');
+      localStorage.setItem('budget-ledger-theme', 'light');
+    } else {
+      root.setAttribute('data-theme', 'dark');
+      localStorage.setItem('budget-ledger-theme', 'dark');
+    }
+  });
+
+  // Debt payoff calculator
+  const debtToggle = document.getElementById('debt-toggle');
+  const debtPanel = document.getElementById('debt-panel');
+  const debtBalanceInput = document.getElementById('debt-balance');
+  const debtAprInput = document.getElementById('debt-apr');
+  const debtResult = document.getElementById('debt-result');
+
+  debtToggle.addEventListener('click', () => {
+    const isOpen = !debtPanel.hidden;
+    debtPanel.hidden = isOpen;
+    debtToggle.textContent = isOpen ? '+ Debt payoff calculator' : '– Debt payoff calculator';
+    debtToggle.setAttribute('aria-expanded', String(!isOpen));
+    if (!isOpen) computeDebtPayoff();
+  });
+
+  function parseNumber(input){
+    const raw = input.value.replace(/[^0-9.]/g, '');
+    const val = parseFloat(raw);
+    return isNaN(val) ? 0 : val;
+  }
+
+  function computeDebtPayoff(){
+    const balance = parseNumber(debtBalanceInput);
+    const apr = parseNumber(debtAprInput);
+    const payment = monthlyIncome() * (pct.savings / 100);
+
+    if (balance <= 0) {
+      debtResult.innerHTML = 'Enter a balance and rate to see your payoff timeline using your monthly savings amount as the payment.';
+      return;
+    }
+    if (payment <= 0) {
+      debtResult.innerHTML = 'Your savings allocation is currently $0 — increase the Savings slider to see a payoff estimate.';
+      return;
+    }
+
+    const monthlyRate = (apr / 100) / 12;
+    const monthlyInterestOnly = balance * monthlyRate;
+
+    if (monthlyRate > 0 && payment <= monthlyInterestOnly) {
+      debtResult.innerHTML = 'At <strong>' + formatCurrency(payment) + '</strong>/mo, your payment doesn\'t cover the interest that accrues each month — this balance won\'t shrink. Raise the Savings percentage or lower the rate.';
+      return;
+    }
+
+    let months;
+    if (monthlyRate === 0) {
+      months = balance / payment;
+    } else {
+      months = -Math.log(1 - (monthlyRate * balance) / payment) / Math.log(1 + monthlyRate);
+    }
+    months = Math.ceil(months);
+
+    const totalPaid = payment * months;
+    const totalInterest = Math.max(0, totalPaid - balance);
+    const years = Math.floor(months / 12);
+    const remMonths = months % 12;
+    const timeStr = years > 0
+      ? years + ' yr' + (years > 1 ? 's' : '') + (remMonths ? ' ' + remMonths + ' mo' : '')
+      : months + ' mo';
+
+    debtResult.innerHTML = 'Paying <strong>' + formatCurrency(payment) + '</strong>/mo from your savings allocation, this balance is paid off in <strong>' + timeStr + '</strong>, with about <strong>' + formatCurrency(totalInterest) + '</strong> paid in interest.';
+  }
+
+  debtBalanceInput.addEventListener('input', computeDebtPayoff);
+  debtAprInput.addEventListener('input', computeDebtPayoff);
 
   Object.keys(sliders).forEach(key => {
     sliders[key].addEventListener('input', (e) => {
