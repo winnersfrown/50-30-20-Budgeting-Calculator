@@ -2,15 +2,6 @@
 
 A single-page, no-build calculator for the 50/30/20 budgeting rule: 50% needs, 30% wants, 20% savings & debt payoff. Drag any slider and the other two rebalance automatically so the ledger always totals 100%.
 
-![Budget Ledger — light mode](screenshots/screenshot-light.png)
-
-<details>
-<summary>Dark mode</summary>
-
-![Budget Ledger — dark mode](screenshots/screenshot-dark.png)
-
-</details>
-
 ## How the math works
 
 The 50/30/20 rule is a simple way to split your **after-tax income** into three buckets:
