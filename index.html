@@ -432,6 +432,60 @@
     border-bottom-color:var(--savings);
   }
 
+  .debt-extra-note{
+    margin:0 0 14px;
+    font-size:0.8rem;
+    color:var(--ink-soft);
+    font-style:italic;
+  }
+
+  .debt-compare{
+    display:flex;
+    align-items:center;
+    gap:14px;
+    margin-bottom:16px;
+    padding:14px;
+    background:var(--paper);
+    border:1px solid var(--paper-line);
+    border-radius:var(--radius);
+  }
+
+  .debt-compare-col{
+    flex:1;
+    display:flex;
+    flex-direction:column;
+    gap:2px;
+    text-align:center;
+  }
+
+  .debt-compare-label{
+    font-size:0.7rem;
+    text-transform:uppercase;
+    letter-spacing:0.04em;
+    color:var(--ink-soft);
+  }
+
+  .debt-compare-value{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:1.3rem;
+    font-weight:500;
+  }
+
+  .debt-compare-sub{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:0.72rem;
+    color:var(--ink-soft);
+  }
+
+  .debt-compare-highlight .debt-compare-value{
+    color:var(--savings);
+  }
+
+  .debt-compare-arrow{
+    font-size:1.1rem;
+    color:var(--ink-soft);
+  }
+
   .debt-result{
     margin:0;
     font-size:0.88rem;
@@ -584,8 +638,26 @@
             Interest rate (APR)
             <input type="text" inputmode="decimal" id="debt-apr" placeholder="19.9">
           </label>
+          <label>
+            Minimum monthly payment
+            <input type="text" inputmode="decimal" id="debt-min-payment" placeholder="150">
+          </label>
         </div>
-        <p class="debt-result" id="debt-result">Enter a balance and rate to see your payoff timeline using your monthly savings amount as the payment.</p>
+        <p class="debt-extra-note" id="debt-extra-note"></p>
+        <div class="debt-compare" id="debt-compare" hidden>
+          <div class="debt-compare-col">
+            <span class="debt-compare-label">Minimum only</span>
+            <span class="debt-compare-value" id="debt-baseline-time">—</span>
+            <span class="debt-compare-sub" id="debt-baseline-interest"></span>
+          </div>
+          <div class="debt-compare-arrow">→</div>
+          <div class="debt-compare-col debt-compare-highlight">
+            <span class="debt-compare-label">Minimum + extra</span>
+            <span class="debt-compare-value" id="debt-extra-time">—</span>
+            <span class="debt-compare-sub" id="debt-extra-interest"></span>
+          </div>
+        </div>
+        <p class="debt-result" id="debt-result">Enter a balance, rate, and minimum payment to see how your savings allocation speeds things up.</p>
       </div>
     </div>
 
@@ -727,7 +799,14 @@
   const debtPanel = document.getElementById('debt-panel');
   const debtBalanceInput = document.getElementById('debt-balance');
   const debtAprInput = document.getElementById('debt-apr');
+  const debtMinPaymentInput = document.getElementById('debt-min-payment');
   const debtResult = document.getElementById('debt-result');
+  const debtExtraNote = document.getElementById('debt-extra-note');
+  const debtCompare = document.getElementById('debt-compare');
+  const debtBaselineTime = document.getElementById('debt-baseline-time');
+  const debtBaselineInterest = document.getElementById('debt-baseline-interest');
+  const debtExtraTime = document.getElementById('debt-extra-time');
+  const debtExtraInterest = document.getElementById('debt-extra-interest');
 
   debtToggle.addEventListener('click', () => {
     const isOpen = !debtPanel.hidden;
@@ -743,49 +822,84 @@
     return isNaN(val) ? 0 : val;
   }
 
-  function computeDebtPayoff(){
-    const balance = parseNumber(debtBalanceInput);
-    const apr = parseNumber(debtAprInput);
-    const payment = monthlyIncome() * (pct.savings / 100);
-
-    if (balance <= 0) {
-      debtResult.innerHTML = 'Enter a balance and rate to see your payoff timeline using your monthly savings amount as the payment.';
-      return;
-    }
-    if (payment <= 0) {
-      debtResult.innerHTML = 'Your savings allocation is currently $0 — increase the Savings slider to see a payoff estimate.';
-      return;
-    }
-
-    const monthlyRate = (apr / 100) / 12;
+  function monthsToPayoff(balance, monthlyRate, payment){
     const monthlyInterestOnly = balance * monthlyRate;
-
-    if (monthlyRate > 0 && payment <= monthlyInterestOnly) {
-      debtResult.innerHTML = 'At <strong>' + formatCurrency(payment) + '</strong>/mo, your payment doesn\'t cover the interest that accrues each month — this balance won\'t shrink. Raise the Savings percentage or lower the rate.';
-      return;
-    }
-
+    if (monthlyRate > 0 && payment <= monthlyInterestOnly) return null;
+    if (payment <= 0) return null;
     let months;
     if (monthlyRate === 0) {
       months = balance / payment;
     } else {
       months = -Math.log(1 - (monthlyRate * balance) / payment) / Math.log(1 + monthlyRate);
     }
-    months = Math.ceil(months);
+    return Math.ceil(months);
+  }
 
-    const totalPaid = payment * months;
-    const totalInterest = Math.max(0, totalPaid - balance);
+  function formatTime(months){
     const years = Math.floor(months / 12);
     const remMonths = months % 12;
-    const timeStr = years > 0
+    return years > 0
       ? years + ' yr' + (years > 1 ? 's' : '') + (remMonths ? ' ' + remMonths + ' mo' : '')
       : months + ' mo';
+  }
 
-    debtResult.innerHTML = 'Paying <strong>' + formatCurrency(payment) + '</strong>/mo from your savings allocation, this balance is paid off in <strong>' + timeStr + '</strong>, with about <strong>' + formatCurrency(totalInterest) + '</strong> paid in interest.';
+  function computeDebtPayoff(){
+    const balance = parseNumber(debtBalanceInput);
+    const apr = parseNumber(debtAprInput);
+    const minPayment = parseNumber(debtMinPaymentInput);
+    const extra = monthlyIncome() * (pct.savings / 100);
+    const totalPayment = minPayment + extra;
+    const monthlyRate = (apr / 100) / 12;
+
+    debtExtraNote.textContent = extra > 0
+      ? 'Extra payment from your Savings allocation: ' + formatCurrency(extra) + '/mo'
+      : 'Your Savings allocation is currently $0 — increase the Savings slider to add an extra payment.';
+
+    if (balance <= 0 || minPayment <= 0) {
+      debtCompare.hidden = true;
+      debtResult.innerHTML = 'Enter a balance, rate, and minimum payment to see how your savings allocation speeds things up.';
+      return;
+    }
+
+    const baselineMonths = monthsToPayoff(balance, monthlyRate, minPayment);
+    const extraMonths = monthsToPayoff(balance, monthlyRate, totalPayment);
+
+    if (baselineMonths === null) {
+      debtCompare.hidden = true;
+      debtResult.innerHTML = 'Your minimum payment doesn\'t cover the interest that accrues each month — this balance won\'t shrink at that rate. Try raising the minimum payment or check the APR.';
+      return;
+    }
+
+    const baselineInterest = Math.max(0, minPayment * baselineMonths - balance);
+
+    debtCompare.hidden = false;
+    debtBaselineTime.textContent = formatTime(baselineMonths);
+    debtBaselineInterest.textContent = formatCurrency(baselineInterest) + ' interest';
+
+    if (extraMonths === null || extra <= 0) {
+      debtExtraTime.textContent = '—';
+      debtExtraInterest.textContent = '';
+      debtResult.innerHTML = 'Add an extra payment from your Savings allocation to see how much time and interest it saves.';
+      return;
+    }
+
+    const extraInterest = Math.max(0, totalPayment * extraMonths - balance);
+    debtExtraTime.textContent = formatTime(extraMonths);
+    debtExtraInterest.textContent = formatCurrency(extraInterest) + ' interest';
+
+    const monthsSaved = baselineMonths - extraMonths;
+    const interestSaved = baselineInterest - extraInterest;
+
+    if (monthsSaved <= 0) {
+      debtResult.innerHTML = 'At this balance and rate, the extra payment doesn\'t meaningfully shorten your payoff time.';
+    } else {
+      debtResult.innerHTML = 'That extra <strong>' + formatCurrency(extra) + '</strong>/mo pays this off <strong>' + formatTime(monthsSaved) + ' sooner</strong> and saves about <strong>' + formatCurrency(interestSaved) + '</strong> in interest.';
+    }
   }
 
   debtBalanceInput.addEventListener('input', computeDebtPayoff);
   debtAprInput.addEventListener('input', computeDebtPayoff);
+  debtMinPaymentInput.addEventListener('input', computeDebtPayoff);
 
   Object.keys(sliders).forEach(key => {
     sliders[key].addEventListener('input', (e) => {
