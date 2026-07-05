@@ -36,9 +36,3 @@ months = -ln(1 - (r × P) / A) / ln(1 + r)
 ```
 
 where `r` is the monthly interest rate, `P` is the balance, and `A` is the monthly payment.
-
-## Notes
-
-- Fonts load from Google Fonts over CDN; the page still works offline, falling back to system fonts.
-- No analytics, no external scripts, no data leaves the browser — all math happens client-side.
-
